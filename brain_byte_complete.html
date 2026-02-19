@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brain Byte Complete</title>
+    <style>
+        /* Add your styles here */
+        #raceProgressBar {
+            width: 100%;
+            height: 20px;
+            background-color: #e0e0e0;
+            position: relative;
+        }
+        #raceProgress {
+            height: 100%;
+            background-color: #76c7c0;
+            width: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Brain Byte Complete!</h1>
+    <div id="analytics">
+        <h2>Analytics Dashboard</h2>
+        <p>Average Score: <span id="averageScore">0</span></p>
+        <p>Best Performing Topic: <span id="bestTopic">None</span></p>
+        <p>Weakest Topic: <span id="weakTopic">None</span></p>
+        <p>Subjects Not Practiced in Last 3 Days: <span id="notPracticed">None</span></p>
+    </div>
+    <div id="race">
+        <h2>F1 Mini-Game</h2>
+        <div id="raceProgressBar">
+            <div id="raceProgress"></div>
+        </div>
+    </div>
+    <script>
+        const scoreData = JSON.parse(localStorage.getItem('quizHistory')) || [];
+        let streak = 0;
+        const today = new Date().toISOString().split('T')[0];
+
+        function updateStreak() {
+            const lastQuizDate = localStorage.getItem('lastQuizDate');
+            if (lastQuizDate !== today) {
+                if (lastQuizDate) {
+                    const lastDate = new Date(lastQuizDate);
+                    const currentDate = new Date();
+                    const dayDiff = Math.floor((currentDate - lastDate) / (1000 * 60 * 60 * 24));
+                    if (dayDiff > 1) {
+                        streak = 0; // reset streak if a full day is skipped
+                    }
+                }
+                streak += 1;
+                localStorage.setItem('lastQuizDate', today);
+            }
+        }
+
+        function recordQuizResult(topic, score) {
+            scoreData.push({ topic, score, date: today });
+            localStorage.setItem('quizHistory', JSON.stringify(scoreData));
+            updateStreak();
+            calculateAnalytics();
+        }
+
+        function calculateAnalytics() {
+            const topicScores = {};
+            scoreData.forEach(entry => {
+                if (!topicScores[entry.topic]) {
+                    topicScores[entry.topic] = { totalScore: 0, count: 0 };
+                }
+                topicScores[entry.topic].totalScore += entry.score;
+                topicScores[entry.topic].count += 1;
+            });
+            let totalScore = 0;
+            let bestTopic = '';
+            let bestScore = 0;
+            let weakTopic = '';
+            let weakScore = Infinity;
+            Object.entries(topicScores).forEach(([topic, data]) => {
+                const average = data.totalScore / data.count;
+                totalScore += average;
+                if (average > bestScore) {
+                    bestScore = average;
+                    bestTopic = topic;
+                }
+                if (average < weakScore) {
+                    weakScore = average;
+                    weakTopic = topic;
+                }
+            });
+            const averageScore = totalScore / Object.keys(topicScores).length;
+            document.getElementById('averageScore').innerText = averageScore.toFixed(2);
+            document.getElementById('bestTopic').innerText = bestTopic;
+            document.getElementById('weakTopic').innerText = weakTopic;
+            updateNotPracticedSubjects();
+        }
+
+        function updateNotPracticedSubjects() {
+            const lastPracticed = Array.from(new Set(scoreData.map(entry => entry.topic))); // Unique subjects practiced
+            const allSubjects = ['Math', 'Science', 'History']; // List of all subjects
+            const notPracticed = allSubjects.filter(subject => !lastPracticed.includes(subject) && (new Date().getTime() - (new Date(localStorage.getItem('lastQuizDate')).getTime() + (3 * 24 * 60 * 60 * 1000)) > 0));
+            document.getElementById('notPracticed').innerText = notPracticed.length ? notPracticed.join(', ') : 'All subjects were practiced recently.';
+        }
+
+        let speed = 0;
+        function updateRaceProgress(correctAnswers) {
+            speed += correctAnswers * 10; // Adjust speed according to correct answers
+            const raceProgress = document.getElementById('raceProgress');
+            raceProgress.style.width = speed + '%';
+        }
+    </script>
+</body>
+</html>
